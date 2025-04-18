@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     PRIMARY_LANG: str = "en"
     DEFAULT_LANG: str = "en"
 
+
+    TAVILY_API_KEY : str = None
+
     class Config:
         env_file = ".env"
 
