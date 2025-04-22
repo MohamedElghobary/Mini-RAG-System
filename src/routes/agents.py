@@ -152,7 +152,7 @@ async def smart_search_with_fallback(request: Request, project_id: int, search_r
     # Sort by score just in case (if not already)
     results.sort(key=lambda r: getattr(r, "score", 0), reverse=True)
     top_result = results[0]
-    threshold = 0.50
+    threshold = 0.65
 
     if getattr(top_result, "score", 0) >= threshold:
         return JSONResponse(
@@ -196,7 +196,7 @@ Answer:"""
 
     return JSONResponse(
         content={
-            "signal": ResponseSignal.FALLBACK_WEB_SEARCH_USED.value,
+            "signal": ResponseSignal.WEB_SEARCH_USED.value,
             "source": "web",
             "question_used": search_request.text,
             "answer": web_answer,

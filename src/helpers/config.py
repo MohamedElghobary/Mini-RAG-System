@@ -43,6 +43,8 @@ class Settings(BaseSettings):
 
 
     TAVILY_API_KEY : str = None
+    
+    SECRET_KEY : str = None
 
     class Config:
         env_file = ".env"

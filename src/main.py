@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routes import agents, base, data, nlp
+from routes import agents, authentication, base, data, nlp
 from helpers.config import get_settings
 from stores.llm.LLMProviderFactory import LLMProviderFactory
 from stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
@@ -54,4 +54,5 @@ app.include_router(base.base_router)
 app.include_router(data.data_router)
 app.include_router(nlp.nlp_router)
 app.include_router(agents.agent_router)
+app.include_router(authentication.auth_router)
 
