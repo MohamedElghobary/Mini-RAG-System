@@ -26,3 +26,5 @@ class UserModel(BaseDataModel):
             query = select(User).where(User.username == username)
             result = await session.execute(query)
             return result.scalar_one_or_none()
+
+

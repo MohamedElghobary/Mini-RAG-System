@@ -12,6 +12,7 @@ from models.AssetModel import AssetModel
 from models.db_schemes import Asset
 from models.enums.AssetTypeEnum import AssetTypeEnum
 from routes.schemes.nlp import SearchRequest
+from helpers.jwt import get_current_user
 
 
 
@@ -23,7 +24,7 @@ agent_router = APIRouter(
 )
 
 @agent_router.post("/upload/{project_id}")
-async def upload_data(request: Request, project_id: int, file: UploadFile,
+async def upload_data(request: Request, project_id: str, file: UploadFile,
                       app_settings: Settings = Depends(get_settings),
                       no_queries: int = Form(5)):                     # Allow keyword count
     project_model = await ProjectModel.create_instance(
@@ -113,7 +114,9 @@ async def upload_data(request: Request, project_id: int, file: UploadFile,
 
 
 @agent_router.post("/smart/search/{project_id}")
-async def smart_search_with_fallback(request: Request, project_id: int, search_request: SearchRequest):
+async def smart_search_with_fallback(request: Request, project_id: str, search_request: SearchRequest, current_user: dict = Depends(get_current_user)):
+
+    user_id = current_user["user_id"]
     """
     Step 1: Try to answer from vector DB.
     Step 2: If similarity score is too low, extract queries from document and do web search.
@@ -121,7 +124,10 @@ async def smart_search_with_fallback(request: Request, project_id: int, search_r
 
     # --- Prepare clients ---
     project_model = await ProjectModel.create_instance(db_client=request.app.db_client)
-    project = await project_model.get_project_or_create_one(project_id=project_id)
+    project = await project_model.get_project_or_create_one(
+        project_id=project_id,
+        user_id=user_id
+        )
 
     nlp_controller = NLPController(
         vectordb_client=request.app.vectordb_client,

@@ -2,7 +2,7 @@ from .BaseDataModel import BaseDataModel
 from .db_schemes import Project
 from .enums.DataBaseEnum import DataBaseEnum
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import UUID, func
 
 class ProjectModel(BaseDataModel):
 
@@ -24,7 +24,7 @@ class ProjectModel(BaseDataModel):
         
         return project
 
-    async def get_project_or_create_one(self, project_id: str):
+    async def get_project_or_create_one(self, project_id: str, user_id: UUID):
         async with self.db_client() as session:
             async with session.begin():
                 query = select(Project).where(Project.project_id == project_id)
@@ -32,7 +32,8 @@ class ProjectModel(BaseDataModel):
                 project = result.scalar_one_or_none()
                 if project is None:
                     project_rec = Project(
-                        project_id = project_id
+                        project_id = project_id,
+                        user_id=user_id
                     )
 
                     project = await self.create_project(project=project_rec)
@@ -59,3 +60,39 @@ class ProjectModel(BaseDataModel):
                 projects = await session.execute(query).scalars().all()
 
                 return projects, total_pages
+
+
+
+    async def get_project_or_create_one_by_user(self, user_id: int):
+        async with self.db_client() as session:
+            async with session.begin():  # Transaction begins here
+                # Check if the project already exists
+                query = select(Project).where(Project.user_id == user_id)
+                result = await session.execute(query)
+                project = result.scalar_one_or_none()
+
+                if project is None:
+                    # Create a new project if it doesn't exist
+                    new_project = Project(user_id=user_id)
+                    session.add(new_project)  # Add the new project
+                    await session.refresh(new_project)  # Refresh to get the latest state of the object
+                    return new_project
+
+                return project  # Return the existing project if found
+
+            
+
+    
+    async def get_project_by_id(self, project_id: str):
+        async with self.db_client() as session:
+            async with session.begin():
+                query = select(Project).where(Project.project_id == project_id)
+                result = await session.execute(query)
+                project = result.scalar_one_or_none()
+                
+                if project:
+                    print(" Project Found:", project.project_id)
+                else:
+                    print(" No project found with ID:", project_id)
+                    
+                return project

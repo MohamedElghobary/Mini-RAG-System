@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from models.UserModel import UserModel
+from typing import Annotated
 from helpers.password import hash_password, verify_password
-from helpers.jwt import create_token
+from helpers.jwt import create_token, get_current_user
 from routes.schemes.auth import UserSignup, UserLogin
 
 auth_router = APIRouter(
@@ -29,3 +30,8 @@ async def login(user: UserLogin, request: Request):
     
     token = create_token(db_user.user_id)
     return {"access_token": token, "token_type": "bearer"}
+
+
+@auth_router.get("/me")
+async def get_me(current_user: Annotated[dict, Depends(get_current_user)]):
+    return {"user_id": current_user["user_id"]}
