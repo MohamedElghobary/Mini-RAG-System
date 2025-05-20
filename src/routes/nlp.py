@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from routes.schemes.nlp import PushRequest, SearchRequest
 from models.ProjectModel import ProjectModel
 from models.ChunkModel import ChunkModel
-from controllers import NLPController
+from controllers import AgentsController, NLPController
 from models import ResponseSignal
 from tqdm.auto import tqdm
 from helpers.jwt import get_current_user
@@ -134,10 +134,15 @@ async def get_project_index_info(request: Request, project_id: str, current_user
     )
 
 @nlp_router.post("/index/search/{project_id}")
-async def search_index(request: Request, project_id: str, search_request: SearchRequest, current_user: dict = Depends(get_current_user)):
-
+async def search_index(
+    request: Request,
+    project_id: str,
+    search_request: SearchRequest,
+    current_user: dict = Depends(get_current_user)
+):
     user_id = current_user["user_id"]
-    
+    MIN_ACCEPTABLE_SCORE = 0.75  # Adjust this threshold as needed
+
     project_model = await ProjectModel.create_instance(
         db_client=request.app.db_client
     )
@@ -154,24 +159,40 @@ async def search_index(request: Request, project_id: str, search_request: Search
         template_parser=request.app.template_parser,
     )
 
+    # Step 1: Search vector DB
     results = await nlp_controller.search_vector_db_collection(
         project=project, text=search_request.text, limit=search_request.limit
     )
 
-    if not results:
-        return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
+    if results:
+        # Check if the top result score is good enough
+        top_score = results[0].score if hasattr(results[0], 'score') else None
+        if top_score is not None and top_score >= MIN_ACCEPTABLE_SCORE:
+            return JSONResponse(
                 content={
-                    "signal": ResponseSignal.VECTORDB_SEARCH_ERROR.value
+                    "signal": ResponseSignal.VECTORDB_SEARCH_SUCCESS.value,
+                    "results": [result.dict() for result in results]
                 }
             )
-    
+
+    # Step 2: Fallback to web search if no result or score too low
+    agent_controller = AgentsController()
+    query = search_request.text
+    web_results = await agent_controller.perform_web_search_for_queries([query])
+
+    # allowed_domains = ["amazon.com", "grainger.com"]
+    filtered_results = [
+        r for r in web_results.get(query, [])
+        # if any(domain in r.get("url", "") for domain in allowed_domains)
+    ]
+
     return JSONResponse(
         content={
-            "signal": ResponseSignal.VECTORDB_SEARCH_SUCCESS.value,
-            "results": [ result.dict()  for result in results ]
+            "signal": ResponseSignal.WEB_SEARCH_SUCCESS.value,
+            "results": filtered_results
         }
     )
+
 
 @nlp_router.post("/index/answer/{project_id}")
 async def answer_rag(request: Request, project_id: str, search_request: SearchRequest,current_user: dict = Depends(get_current_user)):
